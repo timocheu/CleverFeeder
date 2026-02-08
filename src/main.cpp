@@ -39,7 +39,7 @@ struct tm timeinfo; // Local time, ntp must be sync before using
 bool canFeed = false;
 int foodLevelPercentage = 0; 
 
-int lastFeed = 0; // To prevent double feeding, if time is close for the next feeding.
+int lastFeed = 8; // To prevent double feeding, if time is close for the next feeding.
 int allowanceFeed = 1; // hour allowance for the cat to get food
 int feedAttempt = 3;
 
@@ -101,17 +101,17 @@ void setup()
 
 void loop()
 {
-  // Time frame 8:00 to 16:00, but add 3 for allowance
-  if (8 <= timeinfo.tm_hour && timeinfo.tm_hour <= 19) {
+  // 08:00 to 20:00
+  if (8 <= timeinfo.tm_hour && timeinfo.tm_hour < 19) {
     unsigned long now = millis();
     if (now - lastSeen > catNearbyWindow) {
       catNearby = false;
     }
 
-    // Allow feed if its within interval
+    // Allow feed if its within interval, run only once per interval
     if (timeinfo.tm_hour - lastFeed >= FEED_INTERVAL) {
       canFeed = true;
-      lastFeed += 4;
+      lastFeed = timeinfo.tm_hour;
       feedAttempt--;
 
       /* 
@@ -130,16 +130,15 @@ void loop()
         openFeeder(feederServo);
         closeFeeder(feederServo);
 
-        // Reset the attempts and allowance
-        if (feedAttempt == 1) {
-          feedAttempt = 3;
-          allowanceFeed = 1;
-        }
 
         // block feeding
         canFeed = false;
       }
     }
+  } else if ((feedAttempt != 3 || allowanceFeed != 1) && timeinfo.tm_hour > 19) {
+    // Reset if current time is greater than 19:00
+    feedAttempt = 3;
+    allowanceFeed = 1;
   }
 
   updateMovement(LCD_SCREEN, detectMotion(MOTION_PIN));
