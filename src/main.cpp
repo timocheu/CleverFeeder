@@ -28,7 +28,7 @@ const long dayLightOffset_sec = 0;
 // [ FEEDING SETTINGS ]
 #define FEED_INTERVAL 4 // Starts at 08:00, 12:00, 16:00
 #define FOOD_CAPACITY_HEIGHT 10 // (12cm - 2cm), 2cm for allowance, 
-unsigned long catTimeWindow = 3 * 1000UL; // 3 Seconds
+unsigned long catNearbyWindow = 3 * 1000UL; // 3 Seconds
 
 // [ OBJECTS ]
 LiquidCrystal_I2C LCD_SCREEN(0x27, 16, 2);
@@ -36,7 +36,6 @@ Servo feederServo;
 
 // [ GLOBAL STATES ]
 struct tm timeinfo; // Local time, ntp must be sync before using
-volatile bool catNearby = false; // Motion variables
 bool canFeed = false;
 int foodLevelPercentage = 0; 
 
@@ -44,6 +43,8 @@ int lastFeed = 0; // To prevent double feeding, if time is close for the next fe
 int allowanceFeed = 1; // hour allowance for the cat to get food
 int feedAttempt = 3;
 
+volatile bool catNearby = false; // Motion variables
+volatile unsigned long lastSeen = 0;
 
 void updateFoodLevel() {
   long distance = 0.01723 * readUltrasonicDistance(ULTRASONIC_TRIG, ULTRASONIC_ECHO);
@@ -57,6 +58,7 @@ void updateFoodLevel() {
 // Run in internal ram for speed, instead of flash
 void ARDUINO_ISR_ATTR motionChange() {
   catNearby = true;
+  lastSeen = millis();
 }
 
 void setup()
@@ -101,6 +103,12 @@ void loop()
 {
   // Time frame 8:00 to 16:00, but add 3 for allowance
   if (8 <= timeinfo.tm_hour && timeinfo.tm_hour <= 19) {
+    unsigned long now = millis();
+    if (now - lastSeen > catNearbyWindow) {
+      catNearby = false;
+    }
+
+    // Allow feed if its within interval
     if (timeinfo.tm_hour - lastFeed >= FEED_INTERVAL) {
       canFeed = true;
       lastFeed += 4;
@@ -133,6 +141,7 @@ void loop()
       }
     }
   }
+
   updateMovement(LCD_SCREEN, detectMotion(MOTION_PIN));
   updateFoodLevel(LCD_SCREEN, foodLevelPercentage);
 
