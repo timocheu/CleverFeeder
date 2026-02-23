@@ -28,7 +28,7 @@ const long dayLightOffset_sec = 0;
 
 // [ FEEDING SETTINGS ]
 #define FEED_INTERVAL 4 // Starts at 08:00, 12:00, 16:00
-#define FOOD_CAPACITY_HEIGHT 10 // (12cm - 2cm), 2cm for allowance, 
+#define FOOD_CAPACITY_HEIGHT 100.0 // (120mm - 20mm), 2mm for allowance, 
 unsigned long catNearbyWindow = 3 * 1000UL; // 3 Seconds
 
 // [ OBJECTS ]
@@ -48,7 +48,7 @@ volatile bool catNearby = false; // Motion variables
 volatile unsigned long lastSeen = 0;
 
 void updateFoodLevel() {
-  long distance = 0.01723 * readUltrasonicDistance(ULTRASONIC_TRIG, ULTRASONIC_ECHO);
+  long distance = 0.1723 * readUltrasonicDistance(ULTRASONIC_TRIG, ULTRASONIC_ECHO);
 
   // Limit the max value distance, to avoid negative percentage
   distance = constrain(distance, 0, FOOD_CAPACITY_HEIGHT);
