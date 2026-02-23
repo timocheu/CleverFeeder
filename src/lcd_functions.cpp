@@ -12,7 +12,7 @@ void setupLCD(LiquidCrystal_I2C &LCD_SCREEN) {
 void lcdUpdateMovement(LiquidCrystal_I2C &LCD_SCREEN, bool catNearby) {
   // -- Movement
   LCD_SCREEN.setCursor(10, 0);
-  LCD_SCREEN.print((movementState) ? "True " : "False");
+  LCD_SCREEN.print((catNearby) ? "True " : "False");
 }
 
 void lcdUpdateFood(LiquidCrystal_I2C &LCD_SCREEN, int foodPercentage) {
@@ -34,7 +34,7 @@ void lcdUpdateFood(LiquidCrystal_I2C &LCD_SCREEN, int foodPercentage) {
 void lcdUpdateAll(LiquidCrystal_I2C &LCD_SCREEN, bool catNearby, int foodPercentage) {
   // -- Movement
   LCD_SCREEN.setCursor(10, 0);
-  LCD_SCREEN.print((movementState) ? "True " : "False");
+  LCD_SCREEN.print((catNearby) ? "True " : "False");
 
   // -- Food Value
   LCD_SCREEN.setCursor(12, 1);
