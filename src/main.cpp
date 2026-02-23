@@ -11,10 +11,11 @@
 #include "config.h"
 
 // HARDWARE CONIGURATION
-#define MOTION_PIN 8
-#define ULTRASONIC_TRIG 2
-#define ULTRASONIC_ECHO 4
-#define SERVO_PIN 12
+#define MOTION_PIN1 12
+#define MOTION_PIN2 13
+#define ULTRASONIC_TRIG 25
+#define ULTRASONIC_ECHO 33
+#define SERVO_PIN 23
 
 // [ WIFI CONFIGURATION ]
 const char* ssid = SSID;
