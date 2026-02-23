@@ -4,7 +4,6 @@
 #include <WiFi.h>
 
 // Sensor Functions headers
-#include "motion_functions.h"
 #include "ultrasonic_functions.h"
 #include "lcd_functions.h"
 #include "servo_functions.h"
@@ -57,7 +56,7 @@ void updateFoodLevel() {
 }
 
 // Run in internal ram for speed, instead of flash
-void ARDUINO_ISR_ATTR motionChange() {
+void ARDUINO_ISR_ATTR motionFound() {
   catNearby = true;
   lastSeen = millis();
 }
@@ -68,6 +67,22 @@ void setup()
   // BAUD = 9200 for Arduino Uno R3
   Serial.begin(115200);
 
+  // [SET PIN MODES]
+  pinMode(ULTRASONIC_TRIG, OUTPUT);
+  pinMode(ULTRASONIC_ECHO, INPUT);
+  
+  feederServo.attach(SERVO_PIN);
+
+  attachInterrupt(MOTION_PIN1, motionFound, CHANGE);
+  attachInterrupt(MOTION_PIN2, motionFound, CHANGE);
+
+  // -- [SETUP LCD]
+  LCD_SCREEN.init();
+  LCD_SCREEN.backlight();
+  setupLCD(LCD_SCREEN);
+  delay(200);
+
+  // -- WIFI --
   WiFi.begin(ssid, password);
   Serial.println("[WiFi] Connecting...");
 
@@ -88,19 +103,6 @@ void setup()
     Serial.println("[NTP:ERROR] Unable to obtain time.");
     return;
   }
-
-  // Setup Pins
-  pinMode(ULTRASONIC_TRIG, OUTPUT);
-  pinMode(ULTRASONIC_ECHO, INPUT);
-  
-  // Setup servo and display
-  LCD_SCREEN.init();
-  LCD_SCREEN.backlight();
-  setupLCD(LCD_SCREEN);
-
-  feederServo.attach(SERVO_PIN);
-
-  attachInterrupt(MOTION_PIN, motionChange, CHANGE);
 }
 
 void loop()
