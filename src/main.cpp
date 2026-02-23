@@ -94,7 +94,10 @@ void setup()
   pinMode(ULTRASONIC_ECHO, INPUT);
   
   // Setup servo and display
+  LCD_SCREEN.init();
+  LCD_SCREEN.backlight();
   setupLCD(LCD_SCREEN);
+
   feederServo.attach(SERVO_PIN);
 
   attachInterrupt(MOTION_PIN, motionChange, CHANGE);
@@ -142,8 +145,6 @@ void loop()
     allowanceFeed = 1;
   }
 
-  updateMovement(LCD_SCREEN, detectMotion(MOTION_PIN));
-  updateFoodLevel(LCD_SCREEN, foodLevelPercentage);
-
+  lcdUpdateAll(LCD_SCREEN, catNearby, foodLevelPercentage);
   delay(1000);
 }
