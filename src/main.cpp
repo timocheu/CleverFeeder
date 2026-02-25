@@ -35,6 +35,11 @@ LiquidCrystal_I2C LCD_SCREEN(0x27, 16, 2);
 Servo feederServo;
 
 // [ GLOBAL STATES ]
+
+// Mutual Exclussion, to prevent crashing due to multiple hardware running at the same time.
+SemaphoreHandle_t i2cMutex = xSemaphoreCreateMutex();
+bool isFeedingInProgress = false;
+
 struct tm timeinfo; // Local time, ntp must be sync before using
 bool canFeed = false;
 int foodLevelPercentage = 0; 
@@ -46,20 +51,11 @@ int feedAttempt = 3;
 volatile bool catNearby = false; // Motion variables
 volatile unsigned long lastSeen = 0;
 
-void updateFoodLevel() {
-  long distance = 0.1723 * readUltrasonicDistance(ULTRASONIC_TRIG, ULTRASONIC_ECHO);
 
-  // Limit the max value distance, to avoid negative percentage
-  distance = constrain(distance, 0, FOOD_CAPACITY_HEIGHT);
-
-  foodLevelPercentage = ((FOOD_CAPACITY_HEIGHT - distance) * 100) / FOOD_CAPACITY_HEIGHT;
-}
-
-// Run in internal ram for speed, instead of flash
-void ARDUINO_ISR_ATTR motionFound() {
-  catNearby = true;
-  lastSeen = millis();
-}
+// [ FUNCTION DECLARATION ]
+void executeFeeding();
+void updateFoodLevel();
+void ARDUINO_ISR_ATTR motionFound();
 
 void setup()
 {
@@ -94,48 +90,42 @@ void setup()
   Serial.print("[WiFi] Connected to WiFi Network: ");
   Serial.println(ssid);
 
+
   // Sync local time
   configTime(gmtOffset_sec, dayLightOffset_sec, ntpServer);
-  // Stop the program if unable to get time
-  if (getLocalTime(&timeinfo)) {
-    Serial.println("[NTP] Successful in syncing the time.");
-  } else {
-    Serial.println("[NTP:ERROR] Unable to obtain time.");
-    return;
-  }
 }
 
 void loop()
 {
+  // Return the program if unable to get time
+  if (!getLocalTime(&timeinfo)) return;
+
+  unsigned long now = millis();
+  // 
+  if (catNearby && (now - lastSeen >= catNearbyWindow)) {
+    catNearby = false;
+  }
+
   // 08:00 to 20:00
   if (8 <= timeinfo.tm_hour && timeinfo.tm_hour < 19) {
-    unsigned long now = millis();
-    if (now - lastSeen > catNearbyWindow) {
-      catNearby = false;
-    }
-
     // Allow feed if its within interval, run only once per interval
-    if (timeinfo.tm_hour - lastFeed >= FEED_INTERVAL) {
+    if (!canFeed && timeinfo.tm_hour - lastFeed >= FEED_INTERVAL) {
       canFeed = true;
-      lastFeed = timeinfo.tm_hour;
       feedAttempt--;
 
       /* 
         if its the last attempt, which meant 16:00 time, have feed allowance
         of 3hours, instead of 1hour
       */ 
-      if (feedAttempt == 1) {
-        allowanceFeed = 3;
-      }
+      allowanceFeed = (feedAttempt == 1) ? 3 : 1;
     }
 
     // The second condition calculates if the current time is less than
     // time allowance.
     if (canFeed && timeinfo.tm_hour - lastFeed <= allowanceFeed) {
       if (catNearby) {
-        openFeeder(feederServo);
-        closeFeeder(feederServo);
-
+        lastFeed = timeinfo.tm_hour;
+        executeFeeding();
 
         // block feeding
         canFeed = false;
@@ -147,6 +137,48 @@ void loop()
     allowanceFeed = 1;
   }
 
-  lcdUpdateAll(LCD_SCREEN, catNearby, foodLevelPercentage);
+  if (xSemaphoreTake(i2cMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+    lcdUpdateAll(LCD_SCREEN, catNearby, foodLevelPercentage);
+    xSemaphoreGive(i2cMutex);
+  }
+}
+
+void executeFeeding() {
+  if (isFeedingInProgress) return;
+  isFeedingInProgress = true;
+
+  Serial.println("[FEEDING] feeding...");
+
+  openFeeder(feederServo);
   delay(1000);
+  closeFeeder(feederServo);
+
+  // Check the mutex if it's free
+  if (xSemaphoreTake(i2cMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+    updateFoodLevel();
+
+    lcdUpdateAll(LCD_SCREEN, catNearby, foodLevelPercentage);
+
+    xSemaphoreGive(i2cMutex);
+  } else {
+    Serial.println("[ERROR] I2C Bus busy: could not update level");
+  }
+
+  isFeedingInProgress = false;
+  Serial.println("[FEEDER] Cycle complete");
+}
+
+void updateFoodLevel() {
+  long distance = 0.1723 * readUltrasonicDistance(ULTRASONIC_TRIG, ULTRASONIC_ECHO);
+
+  // Limit the max value distance, to avoid negative percentage
+  distance = constrain(distance, 0, FOOD_CAPACITY_HEIGHT);
+
+  foodLevelPercentage = ((FOOD_CAPACITY_HEIGHT - distance) * 100) / FOOD_CAPACITY_HEIGHT;
+}
+
+// Run in internal ram for speed, instead of flash
+void ARDUINO_ISR_ATTR motionFound() {
+  catNearby = true;
+  lastSeen = millis();
 }
