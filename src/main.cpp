@@ -6,7 +6,6 @@
 // Sensor Functions headers
 #include "ultrasonic_functions.h"
 #include "lcd_functions.h"
-#include "servo_functions.h"
 #include "config.h"
 
 // HARDWARE CONIGURATION
@@ -149,9 +148,9 @@ void executeFeeding() {
 
   Serial.println("[FEEDING] feeding...");
 
-  openFeeder(feederServo);
-  delay(1000);
-  closeFeeder(feederServo);
+  feederServo.write(120);
+  delay(500);
+  feederServo.write(0);
 
   // Check the mutex if it's free
   if (xSemaphoreTake(i2cMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
